@@ -32,7 +32,6 @@ with pm.Model() as model_vv:
 
 
 # In[57]:
-
 plt.plot(data.Month, data.Lenght, 'C0.', alpha=0.1)
 
 mu_m = trace_vv['mu'].mean(0)
@@ -49,16 +48,11 @@ plt.ylabel('y', rotation=0)
 plt.savefig('B11197_03_29.png', dpi=300)
 
 
-# In[58]:
-
 x_shared.set_value([0.5])
 ppc = pm.sample_posterior_predictive(trace_vv, 2000, model=model_vv)
 y_ppc = ppc['y_pred'][:, 0]
 
 sns.kdeplot(y_ppc)
-
-# In[59]:
-
 
 ref = 53
 density, l, u = az._fast_kde(y_ppc)
@@ -71,22 +65,3 @@ plt.xlabel('length')
 plt.yticks([])
 plt.legend()
 plt.savefig('B11197_03_30.png', dpi=300)
-
-
-# In[ ]:
-
-
-x_4 = ans[ans.group == 'IV']['x'].values
-y_4 = ans[ans.group == 'IV']['y'].values
-
-with pm.Model() as model_t2:
-    b0 = pm.Normal('b0', mu=0, sd=100)
-    b = pm.Normal('b', mu=0, sd=1)
-    e = pm.HalfCauchy('e', 5)
-    ν = pm.Exponential('ν', 1/30)
-    #ν = pm.Gamma('ν', mu=20, sd=15)
-    #ν = pm.Gamma('ν', 2, 0.1)
-
-    y_pred = pm.StudentT('y_pred', mu=b0 + b * x_4, sd=e, nu=ν, observed=y_4)
-    trace_t2 = pm.sample(2000)
-
