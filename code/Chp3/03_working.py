@@ -38,6 +38,7 @@ with pm.Model() as model_g:
     beta = pm.Normal('beta', mu=0, sd=1)  # aka b1
     epsilon = pm.HalfCauchy('epsilon', 5)
 
+    # mu is a vector
     mu = pm.Deterministic('mu', alpha + beta * x)
     y_pred = pm.Normal('y_pred', mu=mu, sd=epsilon, observed=y)
 
@@ -102,14 +103,14 @@ plt.ylabel('y', rotation=0)
 ###############################################################################
 data = np.stack((x, y)).T
 with pm.Model() as pearson_model:
-    μ = pm.Normal('μ', mu=data.mean(0), sd=10, shape=2)
+    mu = pm.Normal('mu', mu=data.mean(0), sd=10, shape=2)
     σ_1 = pm.HalfNormal('σ_1', 10)
     σ_2 = pm.HalfNormal('σ_2', 10)
     ρ = pm.Uniform('ρ', -1., 1.)
     r2 = pm.Deterministic('r2', ρ**2)
     cov = pm.math.stack(([σ_1**2, σ_1*σ_2*ρ],
                          [σ_1*σ_2*ρ, σ_2**2]))
-    y_pred = pm.MvNormal('y_pred', mu=μ, cov=cov, observed=data)
+    y_pred = pm.MvNormal('y_pred', mu=mu, cov=cov, observed=data)
     trace_p = pm.sample(1000)
 
 az.plot_trace(trace_p, var_names=['r2'])
@@ -216,17 +217,17 @@ y_m = df['y'].values
 x_centered = df['x_centered'].values
 
 with pm.Model() as unpooled_model:
-    alpha_temp = pm.Normal('alpha_temp', mu=0, sd=10, shape=M)
-    beta = pm.Normal('beta', mu=0, sd=10, shape=M)
+    b0_temp = pm.Normal('b0_temp', mu=0, sd=10, shape=M)
+    b1 = pm.Normal('b1', mu=0, sd=10, shape=M)
     epsilon = pm.HalfCauchy('epsilon', 5)
     v = pm.Exponential('v', 1/30)
-    y_pred = pm.StudentT('y_pred', mu=alpha_temp[idx] + beta[idx] * x_centered,
+    y_pred = pm.StudentT('y_pred', mu=b0_temp[idx] + b1[idx] * x_centered,
                          sd=epsilon, nu=v, observed=y_m)
 
-    alpha = pm.Deterministic('alpha', alpha_temp - beta * df['x'].mean())
+    b0 = pm.Deterministic('b0', b0_temp - b1*df['x'].mean())
     trace_up = pm.sample(2000)
 
-az.plot_forest(trace_up, var_names=['alpha', 'beta'], combined=True)
+az.plot_forest(trace_up, var_names=['b0', 'b1'], combined=True)
 
 with pm.Model() as hierarchical_model:
     # hyper-priors
@@ -236,7 +237,8 @@ with pm.Model() as hierarchical_model:
     beta_sigma = pm.HalfNormal('beta_sigma', sd=10)
 
     # priors
-    alpha_temp = pm.Normal('alpha_temp', mu=alpha_mu_temp, sd=alpha_sigma_temp, shape=M)
+    alpha_temp = pm.Normal('alpha_temp', mu=alpha_mu_temp, sd=alpha_sigma_temp,
+                           shape=M)
     beta = pm.Normal('beta', mu=beta_mu, sd=beta_sigma, shape=M)
     epsilon = pm.HalfCauchy('epsilon', 5)
     v = pm.Exponential('v', 1/30)
@@ -251,3 +253,269 @@ with pm.Model() as hierarchical_model:
     trace_hm = pm.sample(1000)
 
 az.plot_forest([trace_up, trace_hm], var_names=['alpha', 'beta'], combined=True)
+
+#######################
+# Polynomial regression
+#######################
+
+ans = pd.read_csv('../data/anscombe.csv')
+ans2 = ans.loc[ans['group'] == 'II']
+
+plt.clf()
+sns.regplot(ans2['x'], ans2['y'])
+
+plt.clf()
+sns.kdeplot(ans2['y'])
+
+x2_mean = ans2['x'].mean()
+y2_mean = ans2['y'].mean()
+ans2['x_centered'] = ans2['x'] - x2_mean
+
+with pm.Model() as model_poly:
+    b0 = pm.Normal('b0', mu=y2_mean, sd=1)
+    b1 = pm.Normal('b1', mu=0, sd=1)
+    b2 = pm.Normal('b2', mu=0, sd=1)
+    e = pm.HalfCauchy('e', 5)
+
+    mu = b0 + b1*ans2['x_centered'] + b2 * ans2['x_centered']**2
+    y_pred = pm.Normal('y_pred', mu=mu, sd=e, observed=ans2['y'])
+    trace_poly = pm.sample(2000)
+
+# shows a curve fits it perfectly
+plt.clf()
+x_p = np.linspace(-6, 6)
+y_p = trace_poly['b0'].mean() + trace_poly['b1'].mean() * x_p + trace_poly['b2'].mean() * x_p**2
+plt.scatter(ans2['x_centered'], ans2['y'])
+plt.xlabel('x')
+plt.ylabel('y', rotation=0)
+plt.plot(x_p, y_p, c='C1')
+
+############################
+# Multiple Linear regression
+############################
+
+np.random.seed(314)
+N = 100
+alpha_real = 2.5
+beta_real = [0.9, 1.5]
+eps_real = np.random.normal(0, 0.5, size=N)
+
+X = np.array([np.random.normal(i, j, N) for i, j in zip([10, 2], [1, 1.5])]).T
+X_mean = X.mean(axis=0, keepdims=True)
+X_centered = X - X_mean
+y = alpha_real + np.dot(X, beta_real) + eps_real
+
+df = DataFrame(X, columns=['x0', 'x1'])
+df['y'] = y
+
+df['x0_centered'] = df['x0'] - df['x0'].mean()
+df['x1_centered'] = df['x1'] - df['x1'].mean()
+
+# scanner plot
+sns.pairplot(df[['x0_centered', 'x1_centered', 'y']])
+
+with pm.Model() as model_mlr:
+    b0_temp = pm.Normal('b0_temp', mu=0, sd=10)
+    b = pm.Normal('b', mu=0, sd=1, shape=2)
+    e = pm.HalfCauchy('e', 5)
+
+    # mu = b0_temp + pm.math.dot(X_centered, b)
+    mu = b0_temp + pm.math.dot(df[['x0_centered', 'x1_centered']], b)
+
+    # b0 = pm.Deterministic('b0', b0_temp - pm.math.dot(X_mean, b))
+    # uncentering b0 (doesn't affect b1 and b2)
+    b0 = pm.Deterministic('b0', b0_temp - pm.math.dot(df[['x0', 'x1']].mean(), b))
+
+    y_pred = pm.Normal('y_pred', mu=mu, sd=e, observed=y)
+
+    trace_mlr = pm.sample(2000)
+
+varnames = ['b0', 'b', 'e']
+az.plot_trace(trace_mlr, var_names=varnames);
+az.summary(trace_mlr, var_names=varnames)
+
+################################################
+## Confounding variables and redundant variables
+################################################
+
+np.random.seed(42)
+N = 100
+x_1 = np.random.normal(size=N)
+x_2 = x_1 + np.random.normal(size=N, scale=1)
+#x_2 = x_1 + np.random.normal(size=N, scale=0.01)
+y = x_1 + np.random.normal(size=N)
+X = np.vstack((x_1, x_2)).T
+
+
+# In[43]:
+
+
+scatter_plot(X, y)
+plt.savefig('B11197_03_21.png', dpi=300)
+
+
+# In[44]:
+
+
+with pm.Model() as m_x1x2:
+    α = pm.Normal('α', mu=0, sd=10)
+    β1 = pm.Normal('β1', mu=0, sd=10)
+    β2 = pm.Normal('β2', mu=0, sd=10)
+    ϵ = pm.HalfCauchy('ϵ', 5)
+
+    μ = α + β1 * X[:, 0] + β2 * X[:, 1]
+
+    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y)
+
+    trace_x1x2 = pm.sample(2000)
+
+
+with pm.Model() as m_x1:
+    α = pm.Normal('α', mu=0, sd=10)
+    β1 = pm.Normal('β1', mu=0, sd=10)
+    ϵ = pm.HalfCauchy('ϵ', 5)
+
+    μ = α + β1 * X[:, 0]
+
+    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y)
+
+    trace_x1 = pm.sample(2000)
+
+with pm.Model() as m_x2:
+    α = pm.Normal('α', mu=0, sd=10)
+    β2 = pm.Normal('β2', mu=0, sd=10)
+    ϵ = pm.HalfCauchy('ϵ', 5)
+
+    μ = α + β2 * X[:, 1]
+
+    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y)
+
+    trace_x2 = pm.sample(2000)
+
+
+# In[45]:
+
+
+az.plot_forest([trace_x1x2, trace_x1, trace_x2],
+               model_names=['m_x1x2', 'm_x1', 'm_x2'],
+               var_names=['β1', 'β2'],
+               combined=False, colors='cycle', figsize=(8, 3))
+plt.savefig('B11197_03_22.png', dpi=300)
+
+
+# In[46]:
+
+
+# just repeating the code from a couple of cells before, but with a lower value of `scale`.
+np.random.seed(42)
+N = 100
+x_1 = np.random.normal(size=N)
+x_2 = x_1 + np.random.normal(size=N, scale=0.01)
+y = x_1 + np.random.normal(size=N)
+X = np.vstack((x_1, x_2)).T
+
+
+# In[47]:
+
+
+scatter_plot(X, y)
+plt.savefig('B11197_03_23.png', dpi=300)
+
+
+# In[48]:
+
+
+with pm.Model() as model_red:
+    α = pm.Normal('α', mu=0, sd=10)
+    β = pm.Normal('β', mu=0, sd=10, shape=2)
+    ϵ = pm.HalfCauchy('ϵ', 5)
+
+    μ = α + pm.math.dot(X, β)
+
+    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y)
+
+    trace_red = pm.sample(2000)
+
+
+# In[49]:
+
+
+az.plot_forest(trace_red, var_names=['β'], combined=True, figsize=(8, 2))
+plt.savefig('B11197_03_24.png', dpi=300)
+
+
+# In[50]:
+
+
+az.plot_pair(trace_red, var_names=['β'])
+plt.savefig('B11197_03_25.png', dpi=300)
+
+
+# ## Masking effect variables
+
+# In[51]:
+
+
+np.random.seed(42)
+N = 126
+r = 0.8
+x_1 = np.random.normal(size=N)
+x_2 = np.random.normal(x_1, scale=(1 - r ** 2) ** 0.5)
+y = np.random.normal(x_1 - x_2)
+X = np.vstack((x_1, x_2)).T
+
+
+# In[52]:
+
+
+scatter_plot(X, y)
+plt.savefig('B11197_03_26.png', dpi=300, figsize=(5.5, 5.5))
+
+
+# In[53]:
+
+
+with pm.Model() as m_x1x2:
+    α = pm.Normal('α', mu=0, sd=10)
+    β1 = pm.Normal('β1', mu=0, sd=10)
+    β2 = pm.Normal('β2', mu=0, sd=10)
+    ϵ = pm.HalfCauchy('ϵ', 5)
+
+    μ = α + β1 * X[:, 0] + β2 * X[:, 1]
+
+    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y)
+
+    trace_x1x2 = pm.sample(1000)
+
+
+with pm.Model() as m_x1:
+    α = pm.Normal('α', mu=0, sd=10)
+    β1 = pm.Normal('β1', mu=0, sd=10)
+    ϵ = pm.HalfCauchy('ϵ', 5)
+
+    μ = α + β1 * X[:, 0]
+
+    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y)
+
+    trace_x1 = pm.sample(1000)
+
+with pm.Model() as m_x2:
+    α = pm.Normal('α', mu=0, sd=10)
+    β2 = pm.Normal('β2', mu=0, sd=10)
+    ϵ = pm.HalfCauchy('ϵ', 5)
+
+    μ = α + β2 * X[:, 1]
+
+    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y)
+
+    trace_x2 = pm.sample(1000)
+
+
+# In[54]:
+
+
+az.plot_forest([trace_x1x2, trace_x1, trace_x2],
+               model_names=['m_x1x2', 'm_x1', 'm_x2'],
+               var_names=['β1', 'β2'],
+               combined=True, colors='cycle', figsize=(8, 3))
+plt.savefig('B11197_03_27.png', dpi=300, bbox_inches='tight')
