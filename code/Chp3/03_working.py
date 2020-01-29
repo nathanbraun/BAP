@@ -321,6 +321,7 @@ with pm.Model() as model_mlr:
 
     # mu = b0_temp + pm.math.dot(X_centered, b)
     mu = b0_temp + pm.math.dot(df[['x0_centered', 'x1_centered']], b)
+    # mu = b0_temp + df[['x0_centered', 'x1_centered']]*b
 
     # b0 = pm.Deterministic('b0', b0_temp - pm.math.dot(X_mean, b))
     # uncentering b0 (doesn't affect b1 and b2)

@@ -141,12 +141,12 @@ for cluster in clusters:
 
 
 _, ax = plt.subplots(2, 2, figsize=(11, 8), constrained_layout=True)
- 
+
 ax = np.ravel(ax)
 x = np.linspace(cs_exp.min(), cs_exp.max(), 200)
 for idx, trace_x in enumerate(traces):
     x_ = np.array([x] * clusters[idx]).T
- 
+
     for i in range(50):
         i_ = np.random.randint(0, len(trace_x))
         means_y = trace_x['means'][i_]
@@ -154,14 +154,14 @@ for idx, trace_x in enumerate(traces):
         sd = trace_x['sd'][i_]
         dist = stats.norm(means_y, sd)
         ax[idx].plot(x, np.sum(dist.pdf(x_) * p_y, 1), 'C0', alpha=0.1)
- 
+
     means_y = trace_x['means'].mean(0)
     p_y = trace_x['p'].mean(0)
     sd = trace_x['sd'].mean()
     dist = stats.norm(means_y, sd)
     ax[idx].plot(x, np.sum(dist.pdf(x_) * p_y, 1), 'C0', lw=2)
     ax[idx].plot(x, dist.pdf(x_) * p_y, 'k--', alpha=0.7)
-         
+
     az.plot_kde(cs_exp, plot_kwargs={'linewidth':2, 'color':'k'}, ax=ax[idx])
     ax[idx].set_title('K = {}'.format(clusters[idx]))
     ax[idx].set_yticks([])
@@ -214,19 +214,19 @@ plt.savefig('B11197_06_10.png')
 # In[19]:
 
 
-def stick_breaking_truncated(α, H, K):
+def stick_breaking_truncated(alpha, H, K):
     """
     Truncated stick-breaking process view of a DP
-    
+
     Parameters
     ----------
-    α : float
+    alpha : float
         concentration parameter
     H : scipy distribution
         Base distribution
     K : int
         number of components
-    
+
     Returns
     -------
     locs : array
@@ -234,9 +234,9 @@ def stick_breaking_truncated(α, H, K):
     w : array
         probabilities
     """
-    βs = stats.beta.rvs(1, α, size=K)
+    betas = stats.beta.rvs(1, alpha, size=K)
     w = np.empty(K)
-    w = βs * np.concatenate(([1.], np.cumprod(1 - βs[:-1])))
+    w = betas * np.concatenate(([1.], np.cumprod(1 - betas[:-1])))
     locs = H.rvs(size=K)
     return locs, w
 
@@ -248,10 +248,10 @@ alphas = [1, 10, 100, 1000]
 # plot
 _, ax = plt.subplots(2, 2, sharex=True, figsize=(10, 5))
 ax = np.ravel(ax)
-for idx, α in enumerate(alphas):
-    locs, w = stick_breaking_truncated(α, H, K)
+for idx, alpha in enumerate(alphas):
+    locs, w = stick_breaking_truncated(alpha, H, K)
     ax[idx].vlines(locs, 0, w, color='C0')
-    ax[idx].set_title('α = {}'.format(α))
+    ax[idx].set_title('alpha = {}'.format(alpha))
 
 plt.tight_layout()
 plt.savefig('B11197_06_11.png')
@@ -260,13 +260,13 @@ plt.savefig('B11197_06_11.png')
 # In[20]:
 
 
-α = 10
+alpha = 10
 H = stats.norm
 K = 5
 
 x = np.linspace(-4, 4, 250)
 x_ = np.array([x] * K).T
-locs, w = stick_breaking_truncated(α, H, K)
+locs, w = stick_breaking_truncated(alpha, H, K)
 
 dist = stats.laplace(locs, 0.5)
 plt.plot(x, np.sum(dist.pdf(x_) * w, 1), 'C0', lw=2)
@@ -280,9 +280,9 @@ plt.savefig('B11197_06_12.png')
 
 K = 20
 
-def stick_breaking(α, K):
-    β = pm.Beta('β', 1., α, shape=K)
-    w = β * pm.math.concatenate([[1.], tt.extra_ops.cumprod(1. - β)[:-1]])
+def stick_breaking(alpha, K):
+    beta = pm.Beta('beta', 1., alpha, shape=K)
+    w = beta * pm.math.concatenate([[1.], tt.extra_ops.cumprod(1. - beta)[:-1]])
     return w
 
 
@@ -290,12 +290,12 @@ def stick_breaking(α, K):
 
 
 with pm.Model() as model:
-    α = pm.Gamma('α', 1, 1.)
-    w = pm.Deterministic('w', stick_breaking(α, K))
+    alpha = pm.Gamma('alpha', 1, 1.)
+    w = pm.Deterministic('w', stick_breaking(alpha, K))
     means = pm.Normal('means',
                       mu=np.linspace(cs_exp.min(), cs_exp.max(), K),
                       sd=10, shape=K)
-    
+
     sd = pm.HalfNormal('sd', sd=10, shape=K)
     obs = pm.NormalMixture('obs', w, means, sd=sd, observed=cs_exp.values)
     trace = pm.sample(1000, tune=2000, nuts_kwargs={'target_accept':0.85})
@@ -304,7 +304,7 @@ with pm.Model() as model:
 # In[28]:
 
 
-az.plot_trace(trace, var_names=['α'], divergences=False);
+az.plot_trace(trace, var_names=['alpha'], divergences=False);
 plt.savefig('B11197_06_13.png')
 
 

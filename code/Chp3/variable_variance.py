@@ -48,11 +48,14 @@ plt.ylabel('y', rotation=0)
 plt.savefig('B11197_03_29.png', dpi=300)
 
 
-x_shared.set_value([0.5])
+# without doing this, looks like it just does the first one, i.e. 0 here
+x_shared.set_value([0])
 ppc = pm.sample_posterior_predictive(trace_vv, 2000, model=model_vv)
 y_ppc = ppc['y_pred'][:, 0]
 
+plt.clf()
 sns.kdeplot(y_ppc)
+plt.show()
 
 ref = 53
 density, l, u = az._fast_kde(y_ppc)

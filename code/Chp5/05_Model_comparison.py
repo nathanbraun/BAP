@@ -40,24 +40,24 @@ plt.savefig('B11197_05_01.png', dpi=300)
 
 
 with pm.Model() as model_l:
-    α = pm.Normal('α', mu=0, sd=1)
-    β = pm.Normal('β', mu=0, sd=10)
-    ϵ = pm.HalfNormal('ϵ', 5)
+    alpha = pm.Normal('alpha', mu=0, sd=1)
+    beta = pm.Normal('beta', mu=0, sd=10)
+    epsilon = pm.HalfNormal('epsilon', 5)
 
-    μ = α + β * x_1s[0]
+    mu = alpha + beta * x_1s[0]
 
-    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y_1s)
+    y_pred = pm.Normal('y_pred', mu=mu, sd=epsilon, observed=y_1s)
 
     trace_l = pm.sample(2000)
 
 with pm.Model() as model_p:
-    α = pm.Normal('α', mu=0, sd=1)
-    β = pm.Normal('β', mu=0, sd=10, shape=order)
-    ϵ = pm.HalfNormal('ϵ', 5)
+    alpha = pm.Normal('alpha', mu=0, sd=1)
+    beta = pm.Normal('beta', mu=0, sd=10, shape=order)
+    epsilon = pm.HalfNormal('epsilon', 5)
 
-    μ = α + pm.math.dot(β, x_1s)
+    mu = alpha + pm.math.dot(beta, x_1s)
 
-    y_pred = pm.Normal('y_pred', mu=μ, sd=ϵ, observed=y_1s)
+    y_pred = pm.Normal('y_pred', mu=mu, sd=epsilon, observed=y_1s)
 
     trace_p = pm.sample(2000)
 
@@ -67,23 +67,23 @@ with pm.Model() as model_p:
 
 x_new = np.linspace(x_1s[0].min(), x_1s[0].max(), 100)
 
-α_l_post = trace_l['α'].mean()
-β_l_post = trace_l['β'].mean(axis=0)
-y_l_post = α_l_post + β_l_post *  x_new
+alpha_l_post = trace_l['alpha'].mean()
+beta_l_post = trace_l['beta'].mean(axis=0)
+y_l_post = alpha_l_post + beta_l_post *  x_new
 
 plt.plot(x_new, y_l_post, 'C1', label='linear model')
 
-α_p_post = trace_p['α'].mean()
-β_p_post = trace_p['β'].mean(axis=0)
+alpha_p_post = trace_p['alpha'].mean()
+beta_p_post = trace_p['beta'].mean(axis=0)
 idx = np.argsort(x_1s[0])
-y_p_post = α_p_post + np.dot(β_p_post, x_1s)
+y_p_post = alpha_p_post + np.dot(beta_p_post, x_1s)
 
 plt.plot(x_1s[0][idx], y_p_post[idx], 'C2', label=f'model order {order}')
 
-#α_p_post = trace_p['α'].mean()
-#β_p_post = trace_p['β'].mean(axis=0)
+#alpha_p_post = trace_p['alpha'].mean()
+#beta_p_post = trace_p['beta'].mean(axis=0)
 #x_new_p = np.vstack([x_new**i for i in range(1, order+1)])
-#y_p_post = α_p_post + np.dot(β_p_post, x_new_p) 
+#y_p_post = alpha_p_post + np.dot(beta_p_post, x_new_p)
 
 plt.scatter(x_1s[0], y_1s, c='C0', marker='.')
 plt.legend()
@@ -142,7 +142,7 @@ for idx, func in enumerate([np.mean, iqr]):
 plt.savefig('B11197_05_04.png', dpi=300)
 
 
-# # Occam's razor – simplicity and accuracy 
+# # Occam's razor – simplicity and accuracy
 
 # In[9]:
 
@@ -248,9 +248,9 @@ with pm.Model() as model_BF:
     m = pm.math.switch(pm.math.eq(model_index, 0), m_0, m_1)
 
     # a priori
-    θ = pm.Beta('θ', m[0], m[1])
+    theta = pm.Beta('theta', m[0], m[1])
     # likelihood
-    y = pm.Bernoulli('y', θ, observed=y_d)
+    y = pm.Bernoulli('y', theta, observed=y_d)
 
     trace_BF = pm.sample(5000)
 az.plot_trace(trace_BF)
@@ -270,13 +270,13 @@ BF
 
 
 with pm.Model() as model_BF_0:
-    θ = pm.Beta('θ', 4, 8)
-    y = pm.Bernoulli('y', θ, observed=y_d)
+    theta = pm.Beta('theta', 4, 8)
+    y = pm.Bernoulli('y', theta, observed=y_d)
     trace_BF_0 = pm.sample(2500, step=pm.SMC())
 
 with pm.Model() as model_BF_1:
-    θ = pm.Beta('θ', 8, 4)
-    y = pm.Bernoulli('y', θ, observed=y_d)
+    theta = pm.Beta('theta', 8, 4)
+    y = pm.Bernoulli('y', theta, observed=y_d)
     trace_BF_1 = pm.sample(2500, step=pm.SMC())
 
 
@@ -297,8 +297,8 @@ for coins, heads in [(30, 9), (300, 90)]:
     y_d = np.repeat([0, 1], [coins-heads, heads])
     for priors in [(4, 8), (8, 4)]:
         with pm.Model() as model:
-            θ = pm.Beta('θ', *priors)
-            y = pm.Bernoulli('y', θ, observed=y_d)
+            theta = pm.Beta('theta', *priors)
+            y = pm.Bernoulli('y', theta, observed=y_d)
             trace = pm.sample(2000)
             traces.append(trace)
             waics.append(az.waic(trace))

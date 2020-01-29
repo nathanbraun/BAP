@@ -19,16 +19,16 @@ az.style.use('arviz-darkgrid')
 
 
 # ## Non-Markovian methods
-# 
+#
 # ### Grid computing
-# 
+#
 
 # In[3]:
 
 
 def posterior_grid(grid_points=50, heads=6, tails=9):
-    """ 
-    A grid implementation for the coin-flipping problem 
+    """
+    A grid implementation for the coin-flipping problem
     """
     grid = np.linspace(0, 1, grid_points)
     prior = np.repeat(1/grid_points, grid_points)  # uniform prior
@@ -47,13 +47,13 @@ data = np.repeat([0, 1], (10, 3))
 points = 10
 h = data.sum()
 t = len(data) - h
-grid, posterior = posterior_grid(points, h, t) 
+grid, posterior = posterior_grid(points, h, t)
 
 plt.plot(grid, posterior, 'o-')
 
 plt.title(f'heads = {h}, tails = {t}')
 plt.yticks([])
-plt.xlabel('θ');
+plt.xlabel('theta');
 plt.savefig('B11197_08_01.png')
 
 
@@ -83,15 +83,15 @@ plt.plot(x, stats.norm.pdf(x, mean_q['p'], std_q),label='Quadratic approximation
 plt.legend(loc=0, fontsize=13)
 
 plt.title(f'heads = {h}, tails = {t}')
-plt.xlabel('θ', fontsize=14)
+plt.xlabel('theta', fontsize=14)
 plt.yticks([])
 plt.savefig('B11197_08_03.png');
 
 
 # ## Markovian methods
-# 
+#
 # ### Monte Carlo
-# 
+#
 
 # In[7]:
 
@@ -102,13 +102,13 @@ x, y = np.random.uniform(-1, 1, size=(2, N))
 inside = (x**2 + y**2) <= 1
 pi = inside.sum()*4/N
 error = abs((pi - np.pi) / pi) * 100
- 
+
 outside = np.invert(inside)
- 
+
 plt.figure(figsize=(8, 8))
 plt.plot(x[inside], y[inside], 'b.')
 plt.plot(x[outside], y[outside], 'r.')
-plt.plot(0, 0, label=f'π*= {pi:4.3f}\nerror = {error:4.3f}', alpha=0)
+plt.plot(0, 0, label=f'pi*= {pi:4.3f}\nerror = {error:4.3f}', alpha=0)
 plt.axis('square')
 plt.xticks([])
 plt.yticks([])
@@ -144,16 +144,16 @@ def metropolis(func, draws=10000):
 
 
 np.random.seed(3)
-func = stats.beta(2, 5) 
-trace = metropolis(func=func) 
-x = np.linspace(0.01, .99, 100) 
-y = func.pdf(x) 
-plt.xlim(0, 1) 
-plt.plot(x, y, 'C1-', lw=3, label='True distribution') 
-plt.hist(trace[trace > 0], bins=25, density=True, label='Estimated distribution') 
-plt.xlabel('x') 
+func = stats.beta(2, 5)
+trace = metropolis(func=func)
+x = np.linspace(0.01, .99, 100)
+y = func.pdf(x)
+plt.xlim(0, 1)
+plt.plot(x, y, 'C1-', lw=3, label='True distribution')
+plt.hist(trace[trace > 0], bins=25, density=True, label='Estimated distribution')
+plt.xlabel('x')
 plt.ylabel('pdf(x)')
-plt.yticks([]) 
+plt.yticks([])
 plt.legend()
 plt.savefig('B11197_08_05.png');
 
